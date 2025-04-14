@@ -170,11 +170,6 @@ def main(csv_path):
     # Create a DataFrame with all results
     results_df = pd.DataFrame(all_results)
     
-    # Save results to CSV
-    output_path = '../transcript_sentiment_analysis.csv'
-    results_df.to_csv(output_path, index=False)
-    print(f"\nSaved sentiment analysis results to {output_path}")
-    
     return results_df
 
 def analyze_single_transcript(transcript_text):

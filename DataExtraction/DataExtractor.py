@@ -5,7 +5,7 @@ from DataExtraction.sentimentAnalyzer import extract_sentiment_data
 
 if __name__ == '__main__':
 
-    CSV_FILE_PATH = "../MITInterview/MITInterview/transcripts.csv"
+    CSV_FILE_PATH = "../RawProvidedData/MITInterview/transcripts.csv"
 
     count_vectorizer_data: pd.DataFrame = extract_word_count_data(CSV_FILE_PATH)
     sentiment_data: pd.DataFrame = extract_sentiment_data(CSV_FILE_PATH)
