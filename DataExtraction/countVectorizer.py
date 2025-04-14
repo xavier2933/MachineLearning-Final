@@ -155,13 +155,10 @@ def calculate_word_counts(feature_matrix, feature_names, parsed_df, n_samples=3,
     
     return word_count_df
 
-def extract_word_count_data() -> pd.DataFrame:
-    CSV_FILE_PATH = "../MITInterview/MITInterview/transcripts.csv"
+def extract_word_count_data(csv_path) -> pd.DataFrame:
 
-    transcripts_df = load_transcripts(CSV_FILE_PATH)
+    transcripts_df = load_transcripts(csv_path)
     parsed_df = parse_transcript(transcripts_df)
-
-
 
     print("\nCreating count vectors for interviewee text...")
     interviewee_features, interviewee_feature_names = create_count_vectors(
@@ -174,6 +171,5 @@ def extract_word_count_data() -> pd.DataFrame:
     )
 
     word_count_df = calculate_word_counts(parsed_df=parsed_df, feature_matrix=interviewee_features, feature_names=interviewee_feature_names)
-    word_count_df.to_csv('word_counts.csv')
 
     return word_count_df

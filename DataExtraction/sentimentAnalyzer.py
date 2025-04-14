@@ -171,7 +171,7 @@ def main(csv_path):
     results_df = pd.DataFrame(all_results)
     
     # Save results to CSV
-    output_path = 'transcript_sentiment_analysis.csv'
+    output_path = '../transcript_sentiment_analysis.csv'
     results_df.to_csv(output_path, index=False)
     print(f"\nSaved sentiment analysis results to {output_path}")
     
@@ -199,15 +199,5 @@ def analyze_single_transcript(transcript_text):
     
     return sentences, sentiment_results
 
-if __name__ == "__main__":
-    # Path to your CSV file
-    csv_file_path = "MITInterview/MITInterview/transcripts.csv"
-    
-    # Run the main function to process all transcripts
-    results_df = main(csv_file_path)
-    
-    # Alternatively, to test with a single transcript:
-    """
-    sample_transcript = "Interviewer: So how are you doing?|Interviewee: Im pretty good.|Interviewer: Ok well so please tell me about yourself.|Interviewee: ok uhm so have you looked at my resume or should I alright so I guess ah I am course 6-7 here at M.I.T ah which is computational biology so its a mix of computers science and biology and actually thats where my interest lie in applying like algorithmic kinda software engineering too datasets dealing with genomics and biology."
-    analyze_single_transcript(sample_transcript)
-    """
+def extract_sentiment_data(csv_path) -> pd.DataFrame:
+    return main(csv_path)
