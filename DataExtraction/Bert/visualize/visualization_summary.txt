@@ -1,0 +1,42 @@
+INTERVIEW ANALYSIS VISUALIZATION SUMMARY
+=======================================
+
+Dataset Statistics:
+  Number of Interviews: 137
+  Average Similarity: 0.8565
+  Similarity Range: 0.7446 to 0.9389
+  Average Interviewer Length: 498.7 characters
+  Average Interviewee Length: 3865.2 characters
+  Average Length Ratio: 7.80
+
+Cluster Information:
+  Cluster 0.0:
+    Size: 22 interviews
+    Average Similarity: 0.8531
+    Average Ratio: 6.32
+  Cluster 1.0:
+    Size: 21 interviews
+    Average Similarity: 0.8602
+    Average Ratio: 7.93
+  Cluster 2.0:
+    Size: 34 interviews
+    Average Similarity: 0.8764
+    Average Ratio: 8.63
+  Cluster 3.0:
+    Size: 29 interviews
+    Average Similarity: 0.8585
+    Average Ratio: 7.78
+  Cluster 4.0:
+    Size: 31 interviews
+    Average Similarity: 0.8328
+    Average Ratio: 7.88
+
+Visualization Files:
+  similarity_histogram.png - Distribution of similarity scores
+  length_comparison.png - Interviewer vs. interviewee text lengths
+  ratio_similarity.png - Relationship between length ratio and similarity
+  top_bottom_comparison.png - Comparison of highest and lowest similarity interviews
+  cluster_sizes.png - Number of interviews in each cluster
+  cluster_similarities.png - Distribution of similarity scores by cluster
+  cluster_ratios.png - Distribution of length ratios by cluster
+  cluster_heatmap.png - Heat map showing key metrics for each cluster
