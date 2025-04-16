@@ -6,6 +6,10 @@ import argparse
 import os
 from matplotlib.colors import LinearSegmentedColormap
 
+"""
+Generated with Claude
+"""
+
 def load_data(file_path):
     """Load and validate the individual analysis CSV file."""
     print(f"Loading data from {file_path}...")

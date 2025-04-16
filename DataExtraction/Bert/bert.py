@@ -37,12 +37,10 @@ class BERTInterviewAnalyzer:
         return df
     
     def parse_transcript(self, df):
-        """Parse transcripts to separate interviewer and interviewee text."""
         print("Parsing transcripts...")
         
         SPLIT_DELIMITER = '|'
         
-        # Create new columns for the separated text
         df['interviewer_text'] = ""
         df['interviewee_text'] = ""
         
@@ -95,8 +93,6 @@ class BERTInterviewAnalyzer:
         return chunks
     
     def get_bert_embeddings(self, text):
-        """Get BERT embeddings for a text snippet."""
-        # Handle empty text
         if not text or len(text.strip()) == 0:
             # Return a tensor of zeros with the correct dimensions
             return torch.zeros(768)
@@ -104,7 +100,7 @@ class BERTInterviewAnalyzer:
         # Handle long text by chunking
         if len(self.tokenizer.tokenize(text)) > 126:  # 128 - 2 for [CLS] and [SEP]
             chunks = self.split_into_chunks(text)
-            # Get embeddings for each chunk and average them
+
             embeddings = []
             for chunk in chunks:
                 chunk_embedding = self._get_single_embedding(chunk)
