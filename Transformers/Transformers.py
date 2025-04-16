@@ -5,12 +5,19 @@ import multiprocessing
 import os
 import argparse
 import re
+import pandas as pd
+
+BLOCK_SIZE = 512
 
 class TextDataset(Dataset):
     """
     Dataset for training minGPT on text data
     """
-    def __init__(self, text, block_size=64):
+    def __init__(self, text, block_size=BLOCK_SIZE, is_csv=False, csv_path=None):
+        # If we're using a CSV file instead of raw text
+        if is_csv and csv_path:
+            text = self.load_from_csv(csv_path)
+        
         # Create a character-level tokenizer for simplicity
         chars = sorted(list(set(text)))
         self.vocab_size = len(chars)
@@ -29,6 +36,22 @@ class TextDataset(Dataset):
             
         print(f"Vocabulary size: {self.vocab_size}")
         print(f"Number of examples: {len(self.examples)}")
+    
+    def load_from_csv(self, csv_path):
+        """Load transcript data from a CSV file"""
+        print(f"Loading transcripts from {csv_path}...")
+        df = pd.read_csv(csv_path)
+        
+        # Take only the first two columns and rename them
+        if len(df.columns) >= 2:
+            df = df.iloc[:, :2]
+            df.columns = ['id', 'transcript']
+        
+        print(f"Loaded {len(df)} transcripts.")
+        
+        # Concatenate all transcripts into a single text
+        all_text = " ".join(df['transcript'].tolist())
+        return all_text
     
     def __len__(self):
         return len(self.examples)
@@ -63,7 +86,7 @@ class TextDataset(Dataset):
         dataset.vocab_size = data['vocab_size']
         return dataset
 
-def train_model(text_data, output_dir="model_output", block_size=64, batch_size=32, 
+def train_model(text_data=None, csv_path=None, output_dir="model_output", block_size=BLOCK_SIZE, batch_size=32, 
                 max_iters=1000, learning_rate=5e-4, 
                 device="cuda" if torch.cuda.is_available() else "cpu"):
     """Train a minGPT model on text data and save it"""
@@ -71,7 +94,11 @@ def train_model(text_data, output_dir="model_output", block_size=64, batch_size=
     os.makedirs(output_dir, exist_ok=True)
     
     # Create the dataset
-    train_dataset = TextDataset(text_data, block_size=block_size)
+    if csv_path:
+        train_dataset = TextDataset("", block_size=block_size, is_csv=True, csv_path=csv_path)
+    else:
+        train_dataset = TextDataset(text_data, block_size=block_size)
+    
     train_dataset.save_vocab(os.path.join(output_dir, "vocab.pt"))
     
     # Import minGPT modules
@@ -257,10 +284,11 @@ def main():
     parser = argparse.ArgumentParser(description='Train and interact with minGPT on text data')
     parser.add_argument('--mode', type=str, choices=['train', 'interact'], required=True,
                         help='Mode: train a new model or interact with an existing one')
-    parser.add_argument('--input_file', type=str, help='Text file for training (required for train mode)')
+    parser.add_argument('--input_file', type=str, help='Text file or CSV file for training (required for train mode)')
+    parser.add_argument('--csv', action='store_true', help='Specify if the input file is a CSV')
     parser.add_argument('--model_dir', type=str, default='model_output',
                         help='Directory to save or load the model')
-    parser.add_argument('--block_size', type=int, default=64,
+    parser.add_argument('--block_size', type=int, default=BLOCK_SIZE,
                         help='Context size for the model (sequence length)')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
     parser.add_argument('--iterations', type=int, default=1000, help='Number of training iterations')
@@ -278,17 +306,13 @@ def main():
             print("Error: --input_file is required for train mode")
             return
         
-        # Load text data
-        try:
-            with open(args.input_file, 'r', encoding='utf-8') as f:
-                text_data = f.read()
-                
-            print(f"Loaded {len(text_data)} characters from {args.input_file}")
-            
-            # Train model
-            print(f"Training model with block_size={args.block_size}, batch_size={args.batch_size}")
+        # Train model
+        print(f"Training model with block_size={args.block_size}, batch_size={args.batch_size}")
+        
+        if args.csv:
+            # Train from CSV file
             model, dataset = train_model(
-                text_data, 
+                csv_path=args.input_file,
                 output_dir=args.model_dir,
                 block_size=args.block_size,
                 batch_size=args.batch_size,
@@ -296,17 +320,49 @@ def main():
                 learning_rate=args.learning_rate,
                 device=device
             )
-            
             print(f"Training complete. Model saved to {args.model_dir}")
             
-            # Generate sample text
-            sample_prompt = text_data[:20] if len(text_data) > 20 else text_data[:len(text_data)//2]
-            print("\nGenerating sample text with prompt:", sample_prompt)
-            sample_text = generate_text(model, dataset, prompt=sample_prompt, max_tokens=100, device=device)
-            print(sample_text)
-            
-        except Exception as e:
-            print(f"Error: {e}")
+            # For sample generation, we'll need some text from the CSV
+            try:
+                df = pd.read_csv(args.input_file)
+                if len(df) > 0:
+                    sample_text = df.iloc[0, 1]  # Get first transcript
+                    sample_prompt = sample_text[:20] if len(sample_text) > 20 else sample_text[:len(sample_text)//2]
+                    print("\nGenerating sample text with prompt:", sample_prompt)
+                    sample_text = generate_text(model, dataset, prompt=sample_prompt, max_tokens=100, device=device)
+                    print(sample_text)
+            except Exception as e:
+                print(f"Error generating sample: {e}")
+                
+        else:
+            # Load text data from regular text file
+            try:
+                with open(args.input_file, 'r', encoding='utf-8') as f:
+                    text_data = f.read()
+                    
+                print(f"Loaded {len(text_data)} characters from {args.input_file}")
+                
+                # Train model with text data
+                model, dataset = train_model(
+                    text_data=text_data, 
+                    output_dir=args.model_dir,
+                    block_size=args.block_size,
+                    batch_size=args.batch_size,
+                    max_iters=args.iterations,
+                    learning_rate=args.learning_rate,
+                    device=device
+                )
+                
+                print(f"Training complete. Model saved to {args.model_dir}")
+                
+                # Generate sample text
+                sample_prompt = text_data[:20] if len(text_data) > 20 else text_data[:len(text_data)//2]
+                print("\nGenerating sample text with prompt:", sample_prompt)
+                sample_text = generate_text(model, dataset, prompt=sample_prompt, max_tokens=100, device=device)
+                print(sample_text)
+                
+            except Exception as e:
+                print(f"Error: {e}")
             
     elif args.mode == 'interact':
         # Launch interactive interface
