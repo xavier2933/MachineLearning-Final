@@ -18,5 +18,5 @@ if __name__ == '__main__':
     filler_percent_df = compute_filler_percent(df_transcripts)
     speaker_balance_df = compute_speaker_balance(df_transcripts)
 
-    features_df = pd.concat([filler_percent_df, speaker_balance_df, word_count_features], axis=1)
+    features_df = pd.concat([filler_percent_df, speaker_balance_df, word_count_features, sentiment_data], axis=1)
     features_df.to_csv('features.csv', index=False)
