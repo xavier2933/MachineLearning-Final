@@ -23,9 +23,11 @@ FILLER_PATTERNS = {
 def load_and_parse_transcripts(csv_path) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
 
+    # Keep only first two columns: ID + transcript
     df = df.iloc[:, :2]
     df.columns = ['id', 'transcript']
 
+    # Add interviewee_text column
     df['interviewee_text'] = ""
     for i, row in df.iterrows():
         parts = row['transcript'].split('|')
@@ -38,8 +40,10 @@ def load_and_parse_transcripts(csv_path) -> pd.DataFrame:
     return df
 
 def compute_filler_percent(df: pd.DataFrame) -> pd.DataFrame:
-    """Returns a DataFrame with one column, 'filler%', 
-       for each row of the original data."""
+    """
+    Returns a DataFrame with 'id' and 'filler%' columns.
+    'filler%' = total_filler_words / total_words_in_interviewee_text.
+    """
     results = []
 
     for _, row in df.iterrows():
@@ -47,17 +51,23 @@ def compute_filler_percent(df: pd.DataFrame) -> pd.DataFrame:
         total_words = len(text.split())
         total_fillers = 0
 
+        # Count all filler words
         for filler, pattern in FILLER_PATTERNS.items():
             if pattern is None:
                 pattern = rf'\b{re.escape(filler)}\b'
             count = len(re.findall(pattern, text))
             total_fillers += count
 
+        # Compute filler percentage
         if total_words > 0:
             filler_percent = total_fillers / total_words
         else:
             filler_percent = 0
 
-        results.append({"filler%": filler_percent})
+        # Keep the participant's 'id'
+        results.append({
+            "id": row["id"],
+            "filler%": filler_percent
+        })
 
     return pd.DataFrame(results)
