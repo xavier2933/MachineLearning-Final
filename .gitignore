@@ -5,3 +5,4 @@
 word_counts.csv
 sentiment_data.csv
 venv/*
+training_vs_validation_loss.png
