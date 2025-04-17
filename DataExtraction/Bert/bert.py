@@ -18,9 +18,8 @@ class BERTInterviewAnalyzer:
         print("Initializing BERT model and tokenizer...")
         self.tokenizer = BertTokenizer.from_pretrained(model_name)
         self.model = BertModel.from_pretrained(model_name)
-        self.model.eval()  # Set model to evaluation mode
+        self.model.eval()  # set model to evaluation mode
         
-        # Check if GPU is available
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model.to(self.device)
         print(f"Using device: {self.device}")
