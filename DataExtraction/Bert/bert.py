@@ -65,7 +65,6 @@ class BERTInterviewAnalyzer:
         return df
     
     def split_into_chunks(self, text, max_length=128):
-        """Chunks to fit max size"""
         sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
         chunks = []
         current_chunk = []
@@ -75,7 +74,7 @@ class BERTInterviewAnalyzer:
             tokens = self.tokenizer.tokenize(sentence)
             sentence_length = len(tokens)
             
-            # If adding sentence exceeds max_length, add current chunk to chunks and start new chunk
+            # start new chunk if sentence is too long
             if current_length + sentence_length > max_length - 2:  # -2 for [CLS] and [SEP]
                 if current_chunk:
                     chunks.append(' '.join(current_chunk))
@@ -85,7 +84,6 @@ class BERTInterviewAnalyzer:
                 current_chunk.append(sentence)
                 current_length += sentence_length
         
-        # Add the last chunk if it's not empty
         if current_chunk:
             chunks.append(' '.join(current_chunk))
         
@@ -93,10 +91,9 @@ class BERTInterviewAnalyzer:
     
     def get_bert_embeddings(self, text):
         if not text or len(text.strip()) == 0:
-            # Return a tensor of zeros with the correct dimensions
+            # return a tensor of zeros with the correct dimensions
             return torch.zeros(768)
         
-        # Handle long text by chunking
         if len(self.tokenizer.tokenize(text)) > 126:  # 128 - 2 for [CLS] and [SEP]
             chunks = self.split_into_chunks(text)
 
