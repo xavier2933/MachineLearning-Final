@@ -1,7 +1,7 @@
 BERT Interview Analysis Summary
 ==============================
 
-Analysis Date: 2025-04-16 15:15:33
+Analysis Date: 2025-04-18 12:12:33
 Input File: ../RawProvidedData/MITInterview/transcripts.csv
 Number of Transcripts: 137
 
@@ -24,4 +24,4 @@ Cluster Information:
   Cluster 3: 29 transcripts
   Cluster 4: 31 transcripts
 
-Analysis completed in 48.19 seconds.
+Analysis completed in 48.06 seconds.
