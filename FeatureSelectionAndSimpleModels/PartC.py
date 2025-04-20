@@ -70,9 +70,6 @@ grid_search = GridSearchCV(
 )
 grid_search.fit(X_train_scaled, y_train)
 
-# 7) Make predictions
-y_pred = rf.predict(X_test)
-
 # ----------------------------- Predict and Evaluate -----------------------------
 
 best_model = grid_search.best_estimator_
