@@ -40,7 +40,8 @@ def do_feature_selection(feature_data: pd.DataFrame, feature_classifications: pd
         "speaker_balance"
     ])
 
-    visualize_correlation_matrix(feature_data)
+    if do_visualization:
+        visualize_correlation_matrix(feature_data)
 
     return feature_data, feature_classifications
 
