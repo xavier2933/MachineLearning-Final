@@ -15,11 +15,22 @@ featuresPath = "features.csv"
 X = pd.read_csv(featuresPath)
 y = pd.read_csv(labelsPath).rename(columns={'Participant': 'id'})
 
-# Align by ID, sort, drop id
+# Align by ID, drop columbs based on part B.
 y = y[y["id"].isin(X["id"])]
 X = X.sort_values("id").reset_index(drop=True)
 y = y.sort_values("id").reset_index(drop=True)
-X = X.drop(columns=["id"])
+# Drop columns based on part B.
+X = X.drop(columns=["id",  "interviewer_length",
+        "interviewee_length",
+        "cluster",
+        "total_word_count",
+        "similarity",
+        "minimum_sentence_sentiment",
+        "maximum_sentence_sentiment",
+        "word_length_2", "word_length_3",
+        "word_length_4",
+        "word_length_5",
+        "speaker_balance"])
 y = y.drop(columns=["id"])
 
 # ----------------------------- Normalize y -----------------------------

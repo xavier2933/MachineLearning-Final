@@ -275,7 +275,7 @@ class BERTInterviewAnalyzer:
                 
                 # Update individual results file
                 individual_df.to_csv(f"{output_dir}/individual_analysis.csv", index=False)
-        
+
         # Create a summary report
         with open(f"{output_dir}/analysis_summary.txt", 'w') as f:
             f.write(f"BERT Interview Analysis Summary\n")
@@ -314,15 +314,18 @@ class BERTInterviewAnalyzer:
             'output_dir': output_dir
         }
 
-def main():
+
+def get_clustered_analysis(csv_path, output_path):
+
+    analyzer = BERTInterviewAnalyzer()
+    result = analyzer.analyze_transcript_collection(csv_path, output_path)
+
+    return result['individual_df']
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Analyze interview transcripts using BERT embeddings')
     parser.add_argument('csv_file', help='Path to the CSV file containing interview transcripts')
     parser.add_argument('--output', default='results', help='Output directory for analysis results')
-    
-    args = parser.parse_args()
-    
-    analyzer = BERTInterviewAnalyzer()
-    analyzer.analyze_transcript_collection(args.csv_file, args.output)
 
-if __name__ == "__main__":
-    main()
+    args = parser.parse_args()
+    get_clustered_analysis(args.csv_file, args.output)
