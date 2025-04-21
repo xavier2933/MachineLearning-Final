@@ -1,0 +1,27 @@
+BERT Interview Analysis Summary
+==============================
+
+Analysis Date: 2025-04-21 14:01:45
+Input File: ../../RawProvidedData/MITInterview/transcripts.csv
+Number of Transcripts: 137
+
+Global Interviewer-Interviewee Similarity: 0.9224
+
+Individual Transcript Statistics:
+  Average Similarity: 0.8565
+  Min Similarity: 0.7446
+  Max Similarity: 0.9389
+
+Text Length Statistics:
+  Average Interviewer Length: 498.7 characters
+  Average Interviewee Length: 3865.2 characters
+  Average Interviewee/Interviewer Ratio: 7.80
+
+Cluster Information:
+  Cluster 0: 22 transcripts
+  Cluster 1: 21 transcripts
+  Cluster 2: 34 transcripts
+  Cluster 3: 29 transcripts
+  Cluster 4: 31 transcripts
+
+Analysis completed in 167.12 seconds.

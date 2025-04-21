@@ -1,6 +1,10 @@
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 import torch
 
+"""
+pretrained GPT2 too small. Upgraded to llama
+"""
+
 tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl')
 model = GPT2LMHeadModel.from_pretrained('gpt2-xl')
 

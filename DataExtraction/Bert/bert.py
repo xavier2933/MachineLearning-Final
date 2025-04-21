@@ -12,6 +12,9 @@ import argparse
 import time
 from datetime import datetime
 
+TRANSCRIPT_PATH = '../../RawProvidedData/MITInterview/transcripts.csv'
+OUTPUT_PATH = 'out.csv'
+
 
 class BERTInterviewAnalyzer:
     def __init__(self, model_name='bert-base-uncased'):
@@ -160,7 +163,6 @@ class BERTInterviewAnalyzer:
             interviewer_embedding = row['interviewer_embedding']
             interviewee_embedding = row['interviewee_embedding']
             
-            # Calculate similarity
             if isinstance(interviewer_embedding, torch.Tensor) and isinstance(interviewee_embedding, torch.Tensor):
                 similarity = torch.nn.functional.cosine_similarity(
                     interviewer_embedding.unsqueeze(0),
@@ -197,92 +199,72 @@ class BERTInterviewAnalyzer:
             interviewer_stack = torch.stack(all_interviewer_embeddings)
             interviewee_stack = torch.stack(all_interviewee_embeddings)
             
-            global_interviewer_mean = torch.mean(interviewer_stack, dim=0)
-            global_interviewee_mean = torch.mean(interviewee_stack, dim=0)
             
-            global_similarity = torch.nn.functional.cosine_similarity(
-                global_interviewer_mean.unsqueeze(0),
-                global_interviewee_mean.unsqueeze(0)
-            ).item()
-            
-            # Perform PCA on all embeddings combined
             all_embeddings = torch.cat([interviewer_stack, interviewee_stack], dim=0)
             all_embeddings_np = all_embeddings.numpy()
             
-            # Create labels for PCA visualization
             labels = ['Interviewer'] * len(interviewer_stack) + ['Interviewee'] * len(interviewee_stack)
             
-            # Apply PCA
             pca = PCA(n_components=2)
             reduced_embeddings = pca.fit_transform(all_embeddings_np)
             
-            # Create a DataFrame for visualization
             vis_df = pd.DataFrame({
                 'pca_1': reduced_embeddings[:, 0],
                 'pca_2': reduced_embeddings[:, 1],
                 'role': labels
             })
             
-            # Create visualization
             plt.figure(figsize=(12, 10))
             sns.scatterplot(x='pca_1', y='pca_2', hue='role', data=vis_df)
             plt.title('PCA of All Interview Embeddings')
             plt.savefig(f"{output_dir}/global_pca_visualization.png")
             
-            # Perform clustering on interviewee embeddings
-            if len(interviewee_stack) >= 5:  # Only cluster if we have enough samples
-                num_clusters = min(5, len(interviewee_stack))
-                kmeans = KMeans(n_clusters=num_clusters, random_state=42)
-                interviewee_np = interviewee_stack.numpy()
-                clusters = kmeans.fit_predict(interviewee_np)
+            num_clusters = min(5, len(interviewee_stack))
+            kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+            interviewee_np = interviewee_stack.numpy()
+            clusters = kmeans.fit_predict(interviewee_np)
+            
+            cluster_results = []
+            
+            # Used Claude to try and make sense of clusters
+            for cluster_id in range(num_clusters):
+                # Get indices of examples in this cluster
+                cluster_indices = [i for i, c in enumerate(clusters) if c == cluster_id]
                 
-                # Find representative examples for each cluster
-                cluster_results = []
-                
-                for cluster_id in range(num_clusters):
-                    # Get indices of examples in this cluster
-                    cluster_indices = [i for i, c in enumerate(clusters) if c == cluster_id]
+                if cluster_indices:
+                    # Get distances to centroid
+                    centroid = kmeans.cluster_centers_[cluster_id]
+                    distances = [np.linalg.norm(interviewee_np[idx] - centroid) for idx in cluster_indices]
                     
-                    if cluster_indices:
-                        # Get distances to centroid
-                        centroid = kmeans.cluster_centers_[cluster_id]
-                        distances = [np.linalg.norm(interviewee_np[idx] - centroid) for idx in cluster_indices]
-                        
-                        # Find closest examples to centroid
-                        sorted_indices = np.argsort(distances)
-                        closest_indices = [cluster_indices[i] for i in sorted_indices[:3]]
-                        
-                        # Get transcript IDs for closest examples
-                        closest_ids = [parsed_df.iloc[idx]['id'] for idx in closest_indices]
-                        
-                        cluster_results.append({
-                            'cluster_id': cluster_id,
-                            'size': len(cluster_indices),
-                            'representative_ids': closest_ids
-                        })
-                
-                # Save cluster results
-                cluster_df = pd.DataFrame(cluster_results)
-                cluster_df.to_csv(f"{output_dir}/cluster_analysis.csv", index=False)
-                
-                # Add cluster information to individual results
-                for i, cluster_id in enumerate(clusters):
-                    individual_df.loc[individual_df['id'] == parsed_df.iloc[i]['id'], 'cluster'] = cluster_id
-                
-                # Update individual results file
-                individual_df.to_csv(f"{output_dir}/individual_analysis.csv", index=False)
+                    # Find closest examples to centroid
+                    sorted_indices = np.argsort(distances)
+                    closest_indices = [cluster_indices[i] for i in sorted_indices[:3]]
+                    
+                    # Get transcript IDs for closest examples
+                    closest_ids = [parsed_df.iloc[idx]['id'] for idx in closest_indices]
+                    
+                    cluster_results.append({
+                        'cluster_id': cluster_id,
+                        'size': len(cluster_indices),
+                        'representative_ids': closest_ids
+                    })
+            
+            cluster_df = pd.DataFrame(cluster_results)
+            cluster_df.to_csv(f"{output_dir}/cluster_analysis.csv", index=False)
+            
+            for i, cluster_id in enumerate(clusters):
+                individual_df.loc[individual_df['id'] == parsed_df.iloc[i]['id'], 'cluster'] = cluster_id
+            
+            individual_df.to_csv(f"{output_dir}/individual_analysis.csv", index=False)
 
-        # Create a summary report
+        # Create a summary report @Claude
         with open(f"{output_dir}/analysis_summary.txt", 'w') as f:
             f.write(f"BERT Interview Analysis Summary\n")
             f.write(f"==============================\n\n")
             f.write(f"Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             f.write(f"Input File: {csv_path}\n")
             f.write(f"Number of Transcripts: {len(parsed_df)}\n\n")
-            
-            if len(all_interviewer_embeddings) > 0 and len(all_interviewee_embeddings) > 0:
-                f.write(f"Global Interviewer-Interviewee Similarity: {global_similarity:.4f}\n\n")
-            
+                        
             f.write(f"Individual Transcript Statistics:\n")
             f.write(f"  Average Similarity: {individual_df['similarity'].mean():.4f}\n")
             f.write(f"  Min Similarity: {individual_df['similarity'].min():.4f}\n")
@@ -311,17 +293,14 @@ class BERTInterviewAnalyzer:
         }
 
 
-def get_clustered_analysis(csv_path, output_path):
-
+def get_clustered_analysis():
     analyzer = BERTInterviewAnalyzer()
-    result = analyzer.analyze_transcript_collection(csv_path, output_path)
+    result = analyzer.analyze_transcript_collection(TRANSCRIPT_PATH, OUTPUT_PATH)
 
     return result['individual_df']
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Analyze interview transcripts using BERT embeddings')
-    parser.add_argument('csv_file', help='Path to the CSV file containing interview transcripts')
-    parser.add_argument('--output', default='results', help='Output directory for analysis results')
 
-    args = parser.parse_args()
-    get_clustered_analysis(args.csv_file, args.output)
+
+    get_clustered_analysis()

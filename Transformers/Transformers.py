@@ -10,6 +10,11 @@ from mingpt.model import GPT
 from mingpt.trainer import Trainer
 
 
+"""
+Super messy code used to train GPT-mini model on transcripts. Lots
+of help from Claude.
+"""
+
 
 BLOCK_SIZE = 512
 
