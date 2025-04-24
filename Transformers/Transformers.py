@@ -6,6 +6,15 @@ import os
 import argparse
 import re
 import pandas as pd
+from mingpt.model import GPT
+from mingpt.trainer import Trainer
+
+
+"""
+Super messy code used to train GPT-mini model on transcripts. Lots
+of help from Claude to blast through the weeds of it
+"""
+
 
 BLOCK_SIZE = 512
 
@@ -14,20 +23,16 @@ class TextDataset(Dataset):
     Dataset for training minGPT on text data
     """
     def __init__(self, text, block_size=BLOCK_SIZE, is_csv=False, csv_path=None):
-        # If we're using a CSV file instead of raw text
         if is_csv and csv_path:
             text = self.load_from_csv(csv_path)
         
-        # Create a character-level tokenizer for simplicity
         chars = sorted(list(set(text)))
         self.vocab_size = len(chars)
-        self.stoi = {ch: i for i, ch in enumerate(chars)}  # string to index
-        self.itos = {i: ch for i, ch in enumerate(chars)}  # index to string
+        self.stoi = {ch: i for i, ch in enumerate(chars)}
+        self.itos = {i: ch for i, ch in enumerate(chars)}
         
-        # Tokenize the text
         data = [self.stoi[c] for c in text]
         
-        # Create examples of sequence/target pairs for training
         self.examples = []
         for i in range(0, len(data) - block_size):
             x = data[i:i + block_size]
@@ -87,13 +92,10 @@ class TextDataset(Dataset):
         return dataset
 
 def train_model(text_data=None, csv_path=None, output_dir="model_output", block_size=BLOCK_SIZE, batch_size=32, 
-                max_iters=1000, learning_rate=5e-4, 
-                device="cuda" if torch.cuda.is_available() else "cpu"):
-    """Train a minGPT model on text data and save it"""
-    # Create output directory
+                max_iters=1000, learning_rate=5e-4, device="cuda" if torch.cuda.is_available() else "cpu"):
+    
     os.makedirs(output_dir, exist_ok=True)
     
-    # Create the dataset
     if csv_path:
         train_dataset = TextDataset("", block_size=block_size, is_csv=True, csv_path=csv_path)
     else:
@@ -101,23 +103,14 @@ def train_model(text_data=None, csv_path=None, output_dir="model_output", block_
     
     train_dataset.save_vocab(os.path.join(output_dir, "vocab.pt"))
     
-    # Import minGPT modules
-    from mingpt.model import GPT
-    
-    # Create model config
     model_config = GPT.get_default_config()
     model_config.model_type = 'gpt-mini'
     model_config.vocab_size = train_dataset.vocab_size
     model_config.block_size = block_size
     
-    # Create model
     model = GPT(model_config)
     model.to(device)
     
-    # Import trainer
-    from mingpt.trainer import Trainer
-    
-    # Create trainer config
     train_config = Trainer.get_default_config()
     train_config.learning_rate = learning_rate
     train_config.max_iters = max_iters
@@ -183,13 +176,9 @@ def generate_text(model, dataset, prompt="", max_tokens=100, temperature=1.0,
         return dataset.decode(generated)
 
 def load_model_for_generation(model_dir="your_model_dir", device="cuda" if torch.cuda.is_available() else "cpu"):
-    """Load a trained minGPT model and vocabulary for text generation"""
     # Load vocabulary
     dataset = TextDataset.load_vocab(os.path.join(model_dir, "vocab.pt"))
     print("Loaded dataset")
-    
-    # Import minGPT modules
-    from mingpt.model import GPT
     
     # Load saved model data
     checkpoint = torch.load(os.path.join(model_dir, "model.pt"), map_location=device)
@@ -217,7 +206,6 @@ def load_model_for_generation(model_dir="your_model_dir", device="cuda" if torch
     return model, dataset
 
 def interactive_interface(model_dir="model_output"):
-    """Interactive interface for text generation with the trained model"""
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Loading model from {model_dir} using {device}...")
     
