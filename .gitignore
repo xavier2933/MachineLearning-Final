@@ -8,3 +8,5 @@ venv/*
 training_vs_validation_loss.png
 
 /Transformers/*.csv
+ebm_plots/*
+*.png

@@ -20,10 +20,9 @@ def load_feature_selected_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
 
 def do_feature_selection(feature_data: pd.DataFrame, feature_classifications: pd.DataFrame, do_visualization=False) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
-    feature_data, feature_classifications = standardize_data(feature_data, feature_classifications)
+    feature_data, feature_classifications = standardize_data(feature_data, feature_classifications, do_visualization)
 
     if do_visualization:
-        visualize_correlation_matrix(feature_data)
         do_model_based_feature_selection(feature_data, feature_classifications)
 
     feature_data = feature_data.drop(columns=[
@@ -40,11 +39,12 @@ def do_feature_selection(feature_data: pd.DataFrame, feature_classifications: pd
         "speaker_balance"
     ])
 
-    visualize_correlation_matrix(feature_data)
+    if do_visualization:
+        visualize_correlation_matrix(feature_data)
 
     return feature_data, feature_classifications
 
-def standardize_data(feature_data: pd.DataFrame, feature_classifications: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def standardize_data(feature_data: pd.DataFrame, feature_classifications: pd.DataFrame, do_visualizations=False) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     feature_classifications = feature_classifications.rename(columns={'Participant': 'id'})
 
@@ -52,8 +52,13 @@ def standardize_data(feature_data: pd.DataFrame, feature_classifications: pd.Dat
     feature_classifications = cleanse_id_column(feature_classifications)
 
     merged_data = pd.merge(feature_data, feature_classifications, on='id')
+    merged_data = merged_data.drop(columns=['Excited', 'id'])
 
-    feature_data = merged_data.drop(columns=['Overall', 'Excited', 'id'])
+
+    if do_visualizations:
+        visualize_correlation_matrix(merged_data)
+
+    feature_data = merged_data.drop(columns=['Overall'])
     feature_classifications = merged_data['Overall'].to_frame()
 
     return feature_data, feature_classifications

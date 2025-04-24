@@ -1,151 +1,123 @@
+#!/usr/bin/env python3
+# ------------------------------------------------------------------
+#  Progressive feature‑dropping for BOTH XGBoost and Keras models
+# ------------------------------------------------------------------
+import os, warnings, time
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"        # force CPU for TF
+warnings.filterwarnings("ignore", category=UserWarning)
+
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import MinMaxScaler
 from scipy.stats import pearsonr
-from xgboost import XGBRegressor
+from xgboost        import XGBRegressor
 import tensorflow as tf
 from tensorflow.keras import layers, models, optimizers, callbacks, regularizers
-import matplotlib.pyplot as plt
 
-# ----------------------------- Load Data -----------------------------
+# ----------------------------- Config -----------------------------
+LABELS_PATH   = "RawProvidedData/MITInterview/scores.csv"
+FEATURES_PATH = "features.csv"
 
-labelsPath = "RawProvidedData/MITInterview/scores.csv"
-featuresPath = "features.csv"
+BASE_DROP = ["id"]
+DROP_ORDER = [
+    "interviewer_length", "interviewee_length", "cluster",
+    "total_word_count", "similarity",
+    "minimum_sentence_sentiment", "maximum_sentence_sentiment",
+    "word_length_2", "word_length_3", "word_length_4", "word_length_5",
+    "speaker_balance",
+]
 
-X = pd.read_csv(featuresPath)
-y = pd.read_csv(labelsPath)
-y.rename(columns={'Participant': 'id'}, inplace=True)
-
-# Align by ID
-y = y[y["id"].isin(X["id"])]
-
-# 2) Sort both by 'id' in ascending order
-X = X.sort_values(by="id").reset_index(drop=True)
-y = y.sort_values(by="id").reset_index(drop=True)
-
-# Drop ID columns
-X = X.drop(columns=["id"])
-y = y.drop(columns=["id"])
-
-# ----------------------------- Normalize y -----------------------------
-
-target_col = "Overall"
-labels = y[target_col]
-min_y = labels.min()
-max_y = labels.max()
-labels_normalized = (labels - min_y) / (max_y - min_y)
-
-# ----------------------------- Train/Test Split -----------------------------
-
-# Use normalized labels
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    labels_normalized,
-    test_size=0.5,
-    random_state=42
-)
-
-# ----------------------------- Normalize X -----------------------------
-
-scaler_X = MinMaxScaler()
-X_train_scaled = scaler_X.fit_transform(X_train)
-X_test_scaled = scaler_X.transform(X_test)
-
-# ----------------------------- XGBoost Model -----------------------------
-print("\n==== XGBoost Model ====")
-xgb_model = XGBRegressor(objective="reg:squarederror", random_state=42)
-
-param_grid = {
-    "n_estimators": [20, 40, 60, 80, 100, 200],
-    "max_depth": [5, 10, 20, 30]
+PARAM_GRID = {                         # XGB grid
+    "n_estimators": [20, 60, 120],
+    "max_depth":    [5, 10, 20]
 }
 
-grid_search = GridSearchCV(
-    estimator=xgb_model,
-    param_grid=param_grid,
-    scoring="neg_mean_absolute_error",
-    cv=5,
-    n_jobs=-1
-)
-grid_search.fit(X_train_scaled, y_train)
+EPOCHS      = 120                      # max epochs for DL
+BATCH_SIZE  = 8
+PATIENCE    = 15
 
-# 7) Make predictions
-y_pred = rf.predict(X_test)
+# ----------------------------- Load once -----------------------------
+X_full = pd.read_csv(FEATURES_PATH)
+y_df   = pd.read_csv(LABELS_PATH).rename(columns={'Participant':'id'})
 
-# ----------------------------- Predict and Evaluate -----------------------------
+y_df   = y_df[y_df["id"].isin(X_full["id"])]
+X_full = X_full.sort_values("id").reset_index(drop=True)
+y_df   = y_df.sort_values("id").reset_index(drop=True)
 
-best_model = grid_search.best_estimator_
-y_pred = best_model.predict(X_test_scaled)
+labels = y_df["Overall"]
+y_norm = (labels - labels.min()) / (labels.max() - labels.min())
 
-# Pearson correlation
-corr, p_value = pearsonr(y_test, y_pred)
-print("Pearson’s r:", corr)
-print("p-value:", p_value)
+# ----------------------------- Loop -----------------------------
+records, dropped = [], BASE_DROP.copy()
 
-# Mean Relative Error (in normalized space, max_y = 1, so it's just MAE)
-rel_error = np.mean(np.abs(y_pred - y_test))
-print("Mean Relative Error:", rel_error)
+for rnd in range(len(DROP_ORDER) + 1):
+    print(f"\n=== ROUND {rnd}: dropping {dropped} ===")
+    t0 = time.perf_counter()
 
-# Show prediction comparison
-results_df = pd.DataFrame({
-    "Actual Overall (Normalized)": y_test.values,
-    "Predicted Overall (Normalized)": y_pred
-})
-print("\nPredicted vs. Actual:")
-print(results_df.head(10).to_string(index=False))
+    # 1 Drop columns & split
+    X = X_full.drop(columns=dropped, errors="ignore")
+    X_tr, X_te, y_tr, y_te = train_test_split(X, y_norm, test_size=0.5, random_state=42)
 
-# ----------------------------- Deep Learning  Model -----------------------------
-print("\n==== Deep Learning Model ====")
+    # 2 Scale
+    scaler = MinMaxScaler().fit(X_tr)
+    X_tr_s, X_te_s = scaler.transform(X_tr), scaler.transform(X_te)
 
-model = models.Sequential([
-    layers.Input(shape=(X_train_scaled.shape[1],)),
-    layers.Dense(128, activation='relu', kernel_regularizer=regularizers.l2(0.001)),
-    layers.Dropout(0.3),
-    layers.Dense(64, activation='relu', kernel_regularizer=regularizers.l2(0.001)),
-    layers.Dropout(0.2),
-    layers.Dense(32, activation='relu'),
-    layers.Dense(1, activation='sigmoid')  # Keep predictions in [0, 1]
-])
+    # ---------- XGBoost ----------
+    xgb_grid = GridSearchCV(
+        XGBRegressor(objective="reg:squarederror", random_state=42),
+        PARAM_GRID, scoring="neg_mean_absolute_error", cv=5, n_jobs=-1
+    ).fit(X_tr_s, y_tr)
 
-model.compile(
-    optimizer=optimizers.Adam(learning_rate=0.0005),
-    loss='mean_squared_error'
-)
+    xgb_pred = xgb_grid.best_estimator_.predict(X_te_s)
+    r_xgb,  _ = pearsonr(y_te, xgb_pred)
+    mae_xgb    = np.mean(np.abs(xgb_pred - y_te))
 
-early_stop = callbacks.EarlyStopping(monitor='val_loss', patience=20, restore_best_weights=True)
+    # ---------- Deep‑Learning ----------
+    tf.keras.backend.clear_session()
+    model = models.Sequential([
+        layers.Input((X_tr_s.shape[1],)),
+        layers.Dense(128, activation='relu', kernel_regularizer=regularizers.l2(1e-3)),
+        layers.Dropout(0.3),
+        layers.Dense(64,  activation='relu', kernel_regularizer=regularizers.l2(1e-3)),
+        layers.Dropout(0.2),
+        layers.Dense(32,  activation='relu'),
+        layers.Dense(1,   activation='sigmoid')
+    ])
+    model.compile(optimizer=optimizers.Adam(5e-4), loss='mse')
 
-history = model.fit(
-    X_train_scaled,
-    y_train,
-    validation_split=0.2,
-    epochs=200,
-    batch_size=8,
-    callbacks=[early_stop],
-    verbose=1
-)
-# ----------------------------- Predict and Evaluate -----------------------------
-y_pred_dl = model.predict(X_test_scaled).flatten()
+    model.fit(
+        X_tr_s, y_tr,
+        validation_split=0.2,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        callbacks=[callbacks.EarlyStopping(patience=PATIENCE, restore_best_weights=True)],
+        verbose=0
+    )
+    dl_pred = model.predict(X_te_s, verbose=0).flatten()
+    r_dl, _   = pearsonr(y_te, dl_pred)
+    mae_dl    = np.mean(np.abs(dl_pred - y_te))
 
-corr_dl, pval_dl = pearsonr(y_test, y_pred_dl)
-rel_error_dl = np.mean(np.abs(y_pred_dl - y_test))
+    dt = time.perf_counter() - t0
+    print(f"  XGB  r={r_xgb:.3f}  MAE={mae_xgb:.3f}")
+    print(f"  DL   r={r_dl :.3f}  MAE={mae_dl :.3f}  ({dt/60:.1f} min)")
 
-print("Pearson’s r:", corr_dl)
-print("p-value:", pval_dl)
-print("Mean Relative Error:", rel_error_dl)
+    records.append({
+        "round": rnd,
+        "dropped": dropped.copy(),
+        "n_features": X.shape[1],
+        "xgb_r": r_xgb, "xgb_MAE": mae_xgb,
+        "dl_r":  r_dl,  "dl_MAE":  mae_dl,
+    })
 
-results_dl = pd.DataFrame({
-    "Actual Overall (Normalized)": y_test.values,
-    "Predicted Overall (Deep Learning)": y_pred_dl
-})
-print("\nPredicted vs. Actual (Deep Learning):")
-print(results_dl.head(10).to_string(index=False))
+    if rnd < len(DROP_ORDER):          # add next column
+        dropped.append(DROP_ORDER[rnd])
 
-plt.plot(history.history['loss'], label='Train Loss')
-plt.plot(history.history['val_loss'], label='Val Loss')
-plt.legend()
-plt.title("Training vs Validation Loss")
-plt.xlabel("Epoch")
-plt.ylabel("Loss")
-plt.show()
-plt.savefig("training_vs_validation_loss.png")
+# ----------------------------- Summary -----------------------------
+summary = pd.DataFrame(records)
+pd.set_option("display.max_colwidth", None)
+print("\n===== SUMMARY =====")
+print(summary[["round", "n_features", "xgb_r", "xgb_MAE", "dl_r", "dl_MAE"]])
+
+summary.to_csv("drop_experiment_summary.csv", index=False)
+print("\nSaved → drop_experiment_summary.csv")
