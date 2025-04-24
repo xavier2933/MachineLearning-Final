@@ -3,12 +3,13 @@ import torch
 
 """
 pretrained GPT2 too small. Upgraded to llama
+
+this script and demo prompt massaged with AI
 """
 
 tokenizer = GPT2Tokenizer.from_pretrained('gpt2-xl')
 model = GPT2LMHeadModel.from_pretrained('gpt2-xl')
 
-# Much shorter, focused prompt
 focused_prompt = """
 Interviewer: Hello and welcome. Thanks for coming in today. Could you start by telling me a bit about yourself and your background?
 
@@ -56,7 +57,6 @@ Question: Did the candidate get the job?
 
 inputs = tokenizer(focused_prompt, return_tensors="pt")
 
-# Generate with stronger guidance
 with torch.no_grad():
     output = model.generate(
         inputs["input_ids"],
@@ -66,10 +66,9 @@ with torch.no_grad():
         do_sample=True,
         pad_token_id=tokenizer.eos_token_id,
         repetition_penalty=1.2,
-        num_return_sequences=3  # Generate multiple responses to pick the best
+        num_return_sequences=3
     )
 
-# Print each generated response
 for i, sequence in enumerate(output):
     text = tokenizer.decode(sequence, skip_special_tokens=True)
     print(f"\nResponse {i+1}:")

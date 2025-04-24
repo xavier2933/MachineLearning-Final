@@ -4,6 +4,7 @@ from sklearn.feature_extraction.text import CountVectorizer
 from scipy.sparse import csr_matrix
 import numpy as np
 import re
+from scipy.stats import pearsonr
 import time
 
 class Llama:
@@ -12,7 +13,7 @@ class Llama:
         self.temperature = 0.7
         self.max_tokens = 200
         self.transcript_path = '../RawProvidedData/MITInterview/transcripts.csv'
-        self.scores_path = '../RawProvidedData/MITInterview/scores.csv'  # Path to your scores document
+        self.scores_path = '../RawProvidedData/MITInterview/scores.csv'
         with open('prompt.txt', 'r', encoding='utf-8') as file:
             self.content = file.read()
 
@@ -38,7 +39,12 @@ class Llama:
         return scores_df
     
     def analyze_transcript_llama(self, transcript):
-        prompt = self.content + transcript + '\nQuestion: Rate this interview on a scale of 1-7, where 1 is the lowest score and 7 is the highest score. Start your answer with just the numeric score (1-7) followed by your reasoning.'
+        # prompt = self.content + transcript + '\nQuestion: Rate this interview on a scale of 1-7, '
+        # 'where 1 is the lowest score and 7 is the highest score.'
+        # ' Start your answer with just the numeric score (1-7) followed by your reasoning.'
+        # ' Try to factor in perceived interviewer excitement into your score'
+        prompt = transcript + '\nQuestion: Rate this interview on a scale of 1-7, '
+        'where 1 is the lowest score and 7 is the highest score.'
         response = ollama.generate(
             model=self.model,
             prompt=prompt,
@@ -61,11 +67,12 @@ class Llama:
             if match:
                 return int(match.group(1))
             else:
-                # Default fallback if no score can be extracted
-                return 0  # You might want to handle this case differently
+                return -1
             
 
     def evaluate_model_performance(self, results_path='transcript_score_analysis_results.csv'):
+        from sklearn.preprocessing import MinMaxScaler
+        
         predictions_df = pd.read_csv(results_path)
         
         actual_scores_df = self.load_actual_scores(self.scores_path)
@@ -84,25 +91,59 @@ class Llama:
         merged_df = predictions_df.merge(actual_scores_df[['id', 'actual_score']], on='id', how='inner')
         print(f"Merged data contains {len(merged_df)} records.")
         
-        merged_df['score_diff'] = abs(merged_df['predicted_score'] - merged_df['actual_score'])
+        print(f"Predicted scores range: {merged_df['predicted_score'].min()} to {merged_df['predicted_score'].max()}")
+        print(f"Actual scores range: {merged_df['actual_score'].min()} to {merged_df['actual_score'].max()}")
+        
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        
+        scores_df = pd.DataFrame({
+            'predicted_score': merged_df['predicted_score'],
+            'actual_score': merged_df['actual_score']
+        })
+        
+        scaled_scores = scaler.fit_transform(scores_df)
+        
+        merged_df['predicted_score_norm'] = scaled_scores[:, 0]
+        merged_df['actual_score_norm'] = scaled_scores[:, 1]
+        
+        merged_df['score_diff'] = abs(merged_df['predicted_score_norm'] - merged_df['actual_score_norm'])
         
         mae = merged_df['score_diff'].mean()
         
-        correlation = merged_df[['predicted_score', 'actual_score']].corr().iloc[0, 1]
+        rmse = np.sqrt(np.mean(np.square(merged_df['predicted_score_norm'] - merged_df['actual_score_norm'])))
         
-        rmse = np.sqrt(np.mean(np.square(merged_df['predicted_score'] - merged_df['actual_score'])))
+        pearson_corr, p_value = pearsonr(merged_df['predicted_score_norm'], merged_df['actual_score_norm'])
         
+        correlation = merged_df[['predicted_score_norm', 'actual_score_norm']].corr().iloc[0, 1]
+        
+        epsilon = 1e-10 # avoid /0 error
+        merged_df['rel_error'] = merged_df['score_diff'] / (merged_df['actual_score_norm'] + epsilon)
+        mean_are = merged_df['rel_error'].mean()
+        
+        print("\n--- Original Metrics ---")
+        orig_mae = abs(merged_df['predicted_score'] - merged_df['actual_score']).mean()
+        orig_rmse = np.sqrt(np.mean(np.square(merged_df['predicted_score'] - merged_df['actual_score'])))
+        orig_corr, orig_p = pearsonr(merged_df['predicted_score'], merged_df['actual_score'])
+        print(f"Original Mean Absolute Error: {orig_mae:.4f}")
+        print(f"Original Root Mean Squared Error: {orig_rmse:.4f}")
+        print(f"Original Pearson Correlation: {orig_corr:.4f} (p-value: {orig_p:.4f})")
+        
+        print("\n--- Normalized Metrics (0-1 scale) ---")
         print(f"Mean Absolute Error: {mae:.4f}")
         print(f"Root Mean Squared Error: {rmse:.4f}")
-        print(f"Correlation: {correlation:.4f}")
+        print(f"Pearson Correlation: {pearson_corr:.4f} (p-value: {p_value:.4f})")
+        print(f"Mean Absolute Relative Error: {mean_are:.4f}")
         
-        merged_df.to_csv('evaluation_results.csv', index=False)
+        merged_df.to_csv('evaluation_results_normed_normal.csv', index=False)
         print("Evaluation results saved to evaluation_results.csv")
         
         return {
             'mae': mae,
             'rmse': rmse,
+            'pearson_correlation': pearson_corr,
+            'p_value': p_value,
             'correlation': correlation,
+            'mean_are': mean_are,
             'merged_data': merged_df
         }
         
@@ -139,8 +180,8 @@ class Llama:
             print(f"Analysis: {row['analysis']}")
             print("-" * 50)
 
-        results_df.to_csv('transcript_score_analysis_results.csv', index=False)
-        print("Results saved to transcript_score_analysis_results.csv")
+        results_df.to_csv('transcript_score_analysis_results_0shot.csv', index=False)
+        print("Results saved to transcript_score_analysis_results_0shot.csv")
     
 
 if __name__ == '__main__':

@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
 import os
 import re
@@ -15,20 +14,18 @@ from datetime import datetime
 TRANSCRIPT_PATH = '../../RawProvidedData/MITInterview/transcripts.csv'
 OUTPUT_PATH = 'out.csv'
 
-
 class BERTInterviewAnalyzer:
     def __init__(self, model_name='bert-base-uncased'):
         print("Initializing BERT model and tokenizer...")
         self.tokenizer = BertTokenizer.from_pretrained(model_name)
         self.model = BertModel.from_pretrained(model_name)
-        self.model.eval()  # set model to evaluation mode
+        self.model.eval()
         
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model.to(self.device)
         print(f"Using device: {self.device}")
     
     def load_transcripts(self, csv_path):
-        print(f"Loading transcripts from {csv_path}...")
         df = pd.read_csv(csv_path)
         
         if len(df.columns) >= 2:
@@ -39,7 +36,6 @@ class BERTInterviewAnalyzer:
         return df
     
     def parse_transcript(self, df):
-        print("Parsing transcripts...")
         
         SPLIT_DELIMITER = '|'
         
@@ -196,29 +192,8 @@ class BERTInterviewAnalyzer:
                 all_interviewee_embeddings.append(row['interviewee_embedding'])
         
         if len(all_interviewer_embeddings) > 0 and len(all_interviewee_embeddings) > 0:
-            interviewer_stack = torch.stack(all_interviewer_embeddings)
             interviewee_stack = torch.stack(all_interviewee_embeddings)
-            
-            
-            all_embeddings = torch.cat([interviewer_stack, interviewee_stack], dim=0)
-            all_embeddings_np = all_embeddings.numpy()
-            
-            labels = ['Interviewer'] * len(interviewer_stack) + ['Interviewee'] * len(interviewee_stack)
-            
-            pca = PCA(n_components=2)
-            reduced_embeddings = pca.fit_transform(all_embeddings_np)
-            
-            vis_df = pd.DataFrame({
-                'pca_1': reduced_embeddings[:, 0],
-                'pca_2': reduced_embeddings[:, 1],
-                'role': labels
-            })
-            
-            plt.figure(figsize=(12, 10))
-            sns.scatterplot(x='pca_1', y='pca_2', hue='role', data=vis_df)
-            plt.title('PCA of All Interview Embeddings')
-            plt.savefig(f"{output_dir}/global_pca_visualization.png")
-            
+                        
             num_clusters = min(5, len(interviewee_stack))
             kmeans = KMeans(n_clusters=num_clusters, random_state=42)
             interviewee_np = interviewee_stack.numpy()
@@ -301,6 +276,5 @@ def get_clustered_analysis():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Analyze interview transcripts using BERT embeddings')
-
 
     get_clustered_analysis()

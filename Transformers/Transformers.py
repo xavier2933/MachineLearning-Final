@@ -12,7 +12,7 @@ from mingpt.trainer import Trainer
 
 """
 Super messy code used to train GPT-mini model on transcripts. Lots
-of help from Claude.
+of help from Claude to blast through the weeds of it
 """
 
 
@@ -23,20 +23,16 @@ class TextDataset(Dataset):
     Dataset for training minGPT on text data
     """
     def __init__(self, text, block_size=BLOCK_SIZE, is_csv=False, csv_path=None):
-        # If we're using a CSV file instead of raw text
         if is_csv and csv_path:
             text = self.load_from_csv(csv_path)
         
-        # Create a character-level tokenizer for simplicity
         chars = sorted(list(set(text)))
         self.vocab_size = len(chars)
-        self.stoi = {ch: i for i, ch in enumerate(chars)}  # string to index
-        self.itos = {i: ch for i, ch in enumerate(chars)}  # index to string
+        self.stoi = {ch: i for i, ch in enumerate(chars)}
+        self.itos = {i: ch for i, ch in enumerate(chars)}
         
-        # Tokenize the text
         data = [self.stoi[c] for c in text]
         
-        # Create examples of sequence/target pairs for training
         self.examples = []
         for i in range(0, len(data) - block_size):
             x = data[i:i + block_size]

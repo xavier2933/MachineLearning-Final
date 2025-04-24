@@ -1,11 +1,9 @@
 BERT Interview Analysis Summary
 ==============================
 
-Analysis Date: 2025-04-21 14:01:45
+Analysis Date: 2025-04-24 13:08:06
 Input File: ../../RawProvidedData/MITInterview/transcripts.csv
 Number of Transcripts: 137
-
-Global Interviewer-Interviewee Similarity: 0.9224
 
 Individual Transcript Statistics:
   Average Similarity: 0.8565
@@ -24,4 +22,4 @@ Cluster Information:
   Cluster 3: 29 transcripts
   Cluster 4: 31 transcripts
 
-Analysis completed in 167.12 seconds.
+Analysis completed in 178.19 seconds.

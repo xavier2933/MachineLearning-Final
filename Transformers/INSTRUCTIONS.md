@@ -2,7 +2,7 @@
 
 Code contained in Transformers.py. Model weigths stored in poorly named directories. In order to run the model trained on the transcripts, run 
 ```
-python Transformers.py --mode interact --model_dir transcript_model
+python Transformers.py --mode interact --model_dir your_model_dir
 ```
 
 In order to train a new model, run 
